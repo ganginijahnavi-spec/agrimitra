@@ -63,18 +63,21 @@ export default async function DashboardPage({
   const totalCrops = count ?? 0;
   const location = [profile?.village, profile?.district, profile?.state].filter(Boolean).join(", ");
 
-  const weather =
-    profile?.latitude != null && profile?.longitude != null
-      ? await getWeather(profile.latitude, profile.longitude).catch(() => null)
-      : null;
-
   const marketCropName = crops?.[0]?.crop_name;
-  const marketResult =
+  // The market card is a nice-to-have summary: a cold data.gov.in cache
+  // can be slow, so give up quickly rather than holding the whole
+  // dashboard (the first page after login) hostage to it.
+  const [weather, marketResult] = await Promise.all([
+    profile?.latitude != null && profile?.longitude != null
+      ? getWeather(profile.latitude, profile.longitude).catch(() => null)
+      : null,
     profile?.state && marketCropName
-      ? await callEdgeFunction<MarketPricesResponse>("market-prices", {
+      ? callEdgeFunction<MarketPricesResponse>("market-prices", {
           searchParams: { state: profile.state, commodity: marketCropName },
+          timeoutMs: 8_000,
         }).then((r) => r.data)
-      : null;
+      : null,
+  ]);
   const marketPrice = marketResult?.prices?.[0] ?? null;
 
   return (

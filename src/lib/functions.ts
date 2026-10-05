@@ -7,12 +7,17 @@ export type EdgeFunctionResult<T> =
 // Calls a Supabase Edge Function with the current user's JWT attached, so
 // the function can verify the caller and apply per-user rate limits.
 // Server-side only.
+// Long enough for the Edge Functions' own 20s Groq timeouts plus overhead,
+// so a hung upstream can never freeze a page indefinitely.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export async function callEdgeFunction<T>(
   functionName: string,
   options: {
     method?: "GET" | "POST";
     searchParams?: Record<string, string | undefined>;
     body?: unknown;
+    timeoutMs?: number;
   } = {},
 ): Promise<EdgeFunctionResult<T>> {
   const supabase = await createClient();
@@ -39,6 +44,7 @@ export async function callEdgeFunction<T>(
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
+      signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
   } catch {
     return { data: null, error: "network_error", status: 0 };
@@ -53,6 +59,10 @@ export async function callEdgeFunction<T>(
     };
   }
 
-  const data = (await response.json()) as T;
-  return { data, error: null, status: response.status };
+  try {
+    const data = (await response.json()) as T;
+    return { data, error: null, status: response.status };
+  } catch {
+    return { data: null, error: "network_error", status: 0 };
+  }
 }

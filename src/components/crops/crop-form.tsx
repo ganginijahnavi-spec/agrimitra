@@ -64,6 +64,8 @@ export function CropForm({
   }
 
   const pending = isDispatching || isTransitioning;
+  const errorText = (message?: string) =>
+    message && t.has(`validation.${message}`) ? t(`validation.${message}`) : message;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
@@ -77,7 +79,7 @@ export function CropForm({
       <div className="space-y-1.5">
         <Label htmlFor="cropName">{t("cropName")}</Label>
         <Input id="cropName" aria-invalid={!!errors.cropName} {...register("cropName")} />
-        {errors.cropName && <p className="text-sm text-destructive">{errors.cropName.message}</p>}
+        {errors.cropName && <p className="text-sm text-destructive">{errorText(errors.cropName.message)}</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -97,7 +99,7 @@ export function CropForm({
           aria-invalid={!!errors.areaAcres}
           {...register("areaAcres")}
         />
-        {errors.areaAcres && <p className="text-sm text-destructive">{errors.areaAcres.message}</p>}
+        {errors.areaAcres && <p className="text-sm text-destructive">{errorText(errors.areaAcres.message)}</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -125,7 +127,7 @@ export function CropForm({
             {...register("expectedHarvestDate")}
           />
           {errors.expectedHarvestDate && (
-            <p className="text-sm text-destructive">{errors.expectedHarvestDate.message}</p>
+            <p className="text-sm text-destructive">{errorText(errors.expectedHarvestDate.message)}</p>
           )}
         </div>
       </div>

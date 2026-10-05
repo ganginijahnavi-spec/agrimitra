@@ -34,7 +34,10 @@ export async function getWeather(latitude: number, longitude: number): Promise<W
   url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "7");
 
-  const response = await fetch(url.toString(), { next: { revalidate: 1800 } });
+  const response = await fetch(url.toString(), {
+    next: { revalidate: 1800 },
+    signal: AbortSignal.timeout(8_000),
+  });
   if (!response.ok) {
     throw new Error(`Weather request failed with status ${response.status}`);
   }

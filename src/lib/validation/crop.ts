@@ -11,11 +11,13 @@ const optionalDate = z
   .optional()
   .transform((v) => (v ? v : undefined));
 
+// Error messages are keys under the "Crops.form.validation" messages
+// namespace, translated by the form, so they show in the farmer's language.
 export const cropFormSchema = z
   .object({
-    cropName: z.string().trim().min(1, "Crop name is required"),
+    cropName: z.string().trim().min(1, "cropNameRequired"),
     variety: optionalText,
-    areaAcres: z.coerce.number().positive("Area must be greater than 0"),
+    areaAcres: z.coerce.number().positive("areaPositive"),
     soilType: optionalText,
     sowingDate: optionalDate,
     expectedHarvestDate: optionalDate,
@@ -28,7 +30,7 @@ export const cropFormSchema = z
         ? true
         : new Date(data.expectedHarvestDate) > new Date(data.sowingDate),
     {
-      message: "Harvest date must be after the sowing date",
+      message: "harvestAfterSowing",
       path: ["expectedHarvestDate"],
     },
   );

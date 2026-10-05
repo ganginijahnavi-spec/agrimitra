@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import en from "@/messages/en.json";
+import te from "@/messages/te.json";
 import { cropFormSchema } from "./crop";
 
 const validInput = {
@@ -64,6 +66,26 @@ describe("cropFormSchema", () => {
       expectedHarvestDate: "2026-06-01",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("uses error messages that are translated in both languages", () => {
+    const result = cropFormSchema.safeParse({
+      cropName: "",
+      areaAcres: "0",
+      sowingDate: "2026-10-01",
+      expectedHarvestDate: "2026-06-01",
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+
+    const keys = result.error.issues.map((issue) => issue.message);
+    expect(keys).toEqual(
+      expect.arrayContaining(["cropNameRequired", "areaPositive"]),
+    );
+    for (const key of [...keys, "harvestAfterSowing"]) {
+      expect(en.Crops.form.validation).toHaveProperty(key);
+      expect(te.Crops.form.validation).toHaveProperty(key);
+    }
   });
 
   it("trims whitespace-only optional text fields to undefined", () => {
