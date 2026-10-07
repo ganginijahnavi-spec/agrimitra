@@ -32,4 +32,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/*/index.ts
+      # Run from the functions folder: from the repo root, Deno would pick up
+      # the Next.js package.json/node_modules instead of its own npm deps.
+      - run: deno check */index.ts
+        working-directory: supabase/functions
