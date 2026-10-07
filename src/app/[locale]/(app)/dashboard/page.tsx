@@ -3,8 +3,7 @@ import { getFormatter, getTranslations, setRequestLocale } from "next-intl/serve
 import { redirect, Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getWeather } from "@/lib/weather";
-import { callEdgeFunction } from "@/lib/functions";
-import type { MarketPricesResponse } from "@/lib/market";
+import { lookupMarketPrices } from "@/lib/market-prices";
 import { WeatherIcon } from "@/components/weather/weather-icon";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,10 +71,12 @@ export default async function DashboardPage({
       ? getWeather(profile.latitude, profile.longitude).catch(() => null)
       : null,
     profile?.state && marketCropName
-      ? callEdgeFunction<MarketPricesResponse>("market-prices", {
-          searchParams: { state: profile.state, commodity: marketCropName },
+      ? lookupMarketPrices({
+          state: profile.state,
+          district: profile.district ?? undefined,
+          commodity: marketCropName,
           timeoutMs: 8_000,
-        }).then((r) => r.data)
+        }).then((lookup) => lookup.result)
       : null,
   ]);
   const marketPrice = marketResult?.prices?.[0] ?? null;
@@ -199,6 +200,9 @@ export default async function DashboardPage({
                     ₹{marketPrice.modal_price != null ? format.number(marketPrice.modal_price) : "—"}
                   </span>{" "}
                   <span className="text-muted-foreground">{tMarket("unit")}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {t("marketAt", { market: marketPrice.market })}
+                  </span>
                 </CardDescription>
               ) : (
                 <CardDescription>

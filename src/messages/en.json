@@ -226,6 +226,7 @@
     "viewAllChats": "View all chats",
     "noChatsYet": "No conversations yet.",
     "startChat": "Start chatting",
+    "marketAt": "at {market}",
     "noCropsYet": "You haven't added any crops yet."
   },
   "Weather": {
@@ -312,6 +313,7 @@
     "trendTitle": "Price trend",
     "trendSubtitle": "{commodity} at {market}",
     "trendSrSummary": "Modal price trend from ₹{first} on {firstDate} to ₹{last} on {lastDate}.",
+    "districtFallback": "No recent prices reported for {district} — showing markets across {state}.",
     "trendUnavailable": "Not enough price history yet for a trend — check back after a few days."
   },
   "Chat": {
@@ -346,6 +348,13 @@
       "rateLimited": "You've reached today's question limit. Please try again tomorrow.",
       "unavailable": "The AI assistant is temporarily unavailable. Please try again.",
       "generic": "Something went wrong. Please try again."
+    },
+    "creator": {
+      "title": "Meet the creator",
+      "role": "Creator of AgriMitra AI",
+      "education": "B.Tech, Computer Science & Engineering (CSE)",
+      "dateOfBirth": "Date of birth",
+      "photoAlt": "Photo of {name}"
     },
     "voiceErrors": {
       "micDenied": "Microphone access was denied. Please allow microphone access and try again.",

@@ -10,9 +10,11 @@ import type { ChatMessage } from "@/lib/chat";
 import { useVoiceInput } from "@/hooks/use-voice-input";
 import { useTextToSpeech } from "@/hooks/use-text-to-speech";
 import { stripMarkdown } from "@/lib/markdown";
+import { creatorReplyText, isCreatorReply } from "@/lib/creator";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MessageContent } from "./message-content";
+import { CreatorCard } from "./creator-card";
 
 const EXAMPLE_KEYS = ["1", "2", "3", "4", "5"] as const;
 
@@ -152,14 +154,25 @@ export function ChatWindow({
                       : "bg-card text-card-foreground shadow-sm"
                   }`}
                 >
-                  <MessageContent content={message.content} />
+                  {message.role === "assistant" && isCreatorReply(message.content) ? (
+                    <CreatorCard />
+                  ) : (
+                    <MessageContent content={message.content} />
+                  )}
                   {message.role === "assistant" && tts.supported && (
                     <Button
                       type="button"
                       size="icon-xs"
                       variant="ghost"
                       className="-ml-1.5 mt-1"
-                      onClick={() => tts.speak(message.id, stripMarkdown(message.content))}
+                      onClick={() =>
+                        tts.speak(
+                          message.id,
+                          isCreatorReply(message.content)
+                            ? creatorReplyText(message.content)
+                            : stripMarkdown(message.content),
+                        )
+                      }
                       aria-label={
                         tts.speakingId === message.id ? t("stopSpeaking") : t("speak")
                       }

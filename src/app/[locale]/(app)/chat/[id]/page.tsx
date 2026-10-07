@@ -14,7 +14,7 @@ export default async function ChatDetailPage({
   const supabase = await createClient();
   const { data: chat } = await supabase
     .from("chats")
-    .select("id, language")
+    .select("id")
     .eq("id", id)
     .single();
 
@@ -33,7 +33,9 @@ export default async function ChatDetailPage({
       key={id}
       chatId={id}
       initialMessages={messages ?? []}
-      language={chat.language === "te" ? "te" : "en"}
+      // Follow the language the app is in right now, not the one the chat
+      // started in, so switching to Telugu switches the replies too.
+      language={locale === "te" ? "te" : "en"}
     />
   );
 }

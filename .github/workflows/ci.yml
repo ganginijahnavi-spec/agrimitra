@@ -26,3 +26,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+      # Edge Functions are deployed to Supabase separately and aren't
+      # type-checked on deploy, so check them here.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/*/index.ts

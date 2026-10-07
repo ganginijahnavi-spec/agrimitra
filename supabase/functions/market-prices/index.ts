@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { getAuthenticatedUser } from "../_shared/auth.ts";
 
@@ -6,7 +6,10 @@ import { getAuthenticatedUser } from "../_shared/auth.ts";
 // — verified live against api.data.gov.in on 2026-09-22.
 const RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-const UPSTREAM_LIMIT = 1000;
+// High enough to cover a large state's full daily report in one request;
+// 1000 silently cut off markets in states like Uttar Pradesh or Maharashtra.
+const UPSTREAM_LIMIT = 5000;
+const UPSTREAM_TIMEOUT_MS = 20_000;
 const RESULT_LIMIT = 200;
 
 type MarketCacheRow = {
@@ -20,6 +23,7 @@ type MarketCacheRow = {
   min_price: number | null;
   max_price: number | null;
   modal_price: number | null;
+  fetched_at: string;
 };
 
 Deno.serve(async (req) => {
@@ -97,7 +101,7 @@ Deno.serve(async (req) => {
 });
 
 async function ensureFreshCache(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   state: string,
 ): Promise<void> {
   const { data: freshRow } = await admin
@@ -119,7 +123,9 @@ async function ensureFreshCache(
   upstreamUrl.searchParams.set("limit", String(UPSTREAM_LIMIT));
   upstreamUrl.searchParams.set("filters[state]", state);
 
-  const response = await fetch(upstreamUrl.toString());
+  const response = await fetch(upstreamUrl.toString(), {
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(`data.gov.in request failed with status ${response.status}`);
   }
@@ -128,9 +134,22 @@ async function ensureFreshCache(
   const records = (payload.records ?? []) as Record<string, string | number>[];
   if (records.length === 0) return;
 
-  const rows = records
-    .map(normalizeRecord)
-    .filter((row): row is MarketCacheRow => row !== null);
+  // Stamped explicitly: on upsert conflicts the column default doesn't
+  // apply, so re-fetched rows would otherwise keep their old fetched_at and
+  // the freshness check above would re-hit data.gov.in on every request.
+  const fetchedAt = new Date().toISOString();
+  // data.gov.in can report the same market/commodity/variety/day more than
+  // once (e.g. different grades), but that's the cache's unique key, and
+  // Postgres rejects an upsert batch that touches the same row twice — which
+  // would silently leave the whole state uncached. Keep the first of each.
+  const rowsByKey = new Map<string, MarketCacheRow>();
+  for (const record of records) {
+    const row = normalizeRecord(record, fetchedAt);
+    if (!row) continue;
+    const key = [row.market, row.commodity, row.variety, row.arrival_date].join("|");
+    if (!rowsByKey.has(key)) rowsByKey.set(key, row);
+  }
+  const rows = [...rowsByKey.values()];
 
   if (rows.length === 0) return;
 
@@ -143,7 +162,10 @@ async function ensureFreshCache(
   }
 }
 
-function normalizeRecord(record: Record<string, string | number>): MarketCacheRow | null {
+function normalizeRecord(
+  record: Record<string, string | number>,
+  fetchedAt: string,
+): MarketCacheRow | null {
   const state = String(record.state ?? "").trim();
   const market = String(record.market ?? "").trim();
   const commodity = String(record.commodity ?? "").trim();
@@ -162,6 +184,7 @@ function normalizeRecord(record: Record<string, string | number>): MarketCacheRo
     min_price: toNumberOrNull(record.min_price),
     max_price: toNumberOrNull(record.max_price),
     modal_price: toNumberOrNull(record.modal_price),
+    fetched_at: fetchedAt,
   };
 }
 

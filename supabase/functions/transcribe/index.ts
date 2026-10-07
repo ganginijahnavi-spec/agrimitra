@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
 
-  let audioBytes: Uint8Array;
+  let audioBytes: Uint8Array<ArrayBuffer>;
   try {
     const binary = atob(audioBase64);
     audioBytes = new Uint8Array(binary.length);

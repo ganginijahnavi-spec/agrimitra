@@ -146,7 +146,7 @@ export async function groqVisionAnalysis(
 // whisper-large-v3 with only a small accuracy tradeoff — a good fit for
 // short voice messages. Free-tier cap is 25MB per file.
 export async function groqTranscribe(
-  audioBytes: Uint8Array,
+  audioBytes: Uint8Array<ArrayBuffer>,
   mimeType: string,
   language: "en" | "te" | undefined,
   options: { timeoutMs?: number } = {},

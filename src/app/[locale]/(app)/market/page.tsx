@@ -2,7 +2,7 @@ import { MapPin, Search, TrendingUp } from "lucide-react";
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { callEdgeFunction } from "@/lib/functions";
+import { lookupMarketPrices } from "@/lib/market-prices";
 import type { MarketPricesResponse, MarketSort } from "@/lib/market";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,13 +57,13 @@ export default async function MarketPage({
 
   let result: MarketPricesResponse | null = null;
   let fetchError = false;
+  let widenedToState = false;
 
   if (state) {
-    const { data, error } = await callEdgeFunction<MarketPricesResponse>("market-prices", {
-      searchParams: { state, district, market, commodity, sort },
-    });
-    if (error) fetchError = true;
-    else result = data;
+    const lookup = await lookupMarketPrices({ state, district, market, commodity, sort });
+    result = lookup.result;
+    fetchError = lookup.error;
+    widenedToState = lookup.scope === "state";
   }
 
   return (
@@ -154,6 +154,13 @@ export default async function MarketPage({
                 <MarketTrendChart trend={result.trend} />
               </CardContent>
             </Card>
+          )}
+
+          {widenedToState && (
+            <p className="flex items-start gap-1.5 rounded-md bg-secondary/60 px-3 py-2 text-sm text-foreground">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+              {t("districtFallback", { district, state: result.prices[0].state })}
+            </p>
           )}
 
           <p className="text-sm text-muted-foreground">
