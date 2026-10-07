@@ -6,10 +6,12 @@ import { getAuthenticatedUser } from "../_shared/auth.ts";
 // — verified live against api.data.gov.in on 2026-09-22.
 const RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-// High enough to cover a large state's full daily report in one request;
-// 1000 silently cut off markets in states like Uttar Pradesh or Maharashtra.
-const UPSTREAM_LIMIT = 5000;
-const UPSTREAM_TIMEOUT_MS = 20_000;
+// Fetched in pages so large states (Uttar Pradesh, Maharashtra, ...) aren't
+// cut off at one page, without asking data.gov.in for more per request
+// than its default.
+const UPSTREAM_PAGE_SIZE = 1000;
+const UPSTREAM_MAX_PAGES = 5;
+const UPSTREAM_BUDGET_MS = 25_000;
 const RESULT_LIMIT = 200;
 
 type MarketCacheRow = {
@@ -25,6 +27,21 @@ type MarketCacheRow = {
   modal_price: number | null;
   fetched_at: string;
 };
+
+// What happened when refreshing from data.gov.in, returned to the app so a
+// failed refresh shows its real cause instead of looking like "no prices".
+type UpstreamStatus = {
+  ok: boolean;
+  status?: number;
+  records: number;
+  error?: string;
+};
+
+class UpstreamError extends Error {
+  constructor(public readonly status: number | undefined, message: string) {
+    super(message);
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -52,13 +69,8 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  try {
-    await ensureFreshCache(admin, state);
-  } catch (error) {
-    // Serve whatever is already cached rather than failing outright when
-    // data.gov.in is slow or unavailable.
-    console.error("market-prices: upstream fetch failed", error);
-  }
+  // Serves whatever is already cached even when the refresh fails.
+  const upstream = await ensureFreshCache(admin, state);
 
   let query = admin.from("market_latest_prices").select("*").eq("state", state);
   if (district) query = query.ilike("district", `%${district}%`);
@@ -97,13 +109,14 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse({ prices: prices ?? [], trend }, 200);
+  return jsonResponse({ prices: prices ?? [], trend, upstream }, 200);
 });
 
+// Returns null when the cache is already fresh (no refresh attempted).
 async function ensureFreshCache(
   admin: SupabaseClient,
   state: string,
-): Promise<void> {
+): Promise<UpstreamStatus | null> {
   const { data: freshRow } = await admin
     .from("market_cache")
     .select("fetched_at")
@@ -112,27 +125,24 @@ async function ensureFreshCache(
     .limit(1)
     .maybeSingle();
 
-  if (freshRow) return;
+  if (freshRow) return null;
 
   const apiKey = Deno.env.get("DATAGOV_API_KEY");
-  if (!apiKey) throw new Error("DATAGOV_API_KEY is not configured");
-
-  const upstreamUrl = new URL(`https://api.data.gov.in/resource/${RESOURCE_ID}`);
-  upstreamUrl.searchParams.set("api-key", apiKey);
-  upstreamUrl.searchParams.set("format", "json");
-  upstreamUrl.searchParams.set("limit", String(UPSTREAM_LIMIT));
-  upstreamUrl.searchParams.set("filters[state]", state);
-
-  const response = await fetch(upstreamUrl.toString(), {
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new Error(`data.gov.in request failed with status ${response.status}`);
+  if (!apiKey) {
+    console.error("market-prices: DATAGOV_API_KEY is not configured");
+    return { ok: false, records: 0, error: "missing_api_key" };
   }
 
-  const payload = await response.json();
-  const records = (payload.records ?? []) as Record<string, string | number>[];
-  if (records.length === 0) return;
+  let records: Record<string, string | number>[];
+  try {
+    records = await fetchStateRecords(apiKey, state);
+  } catch (error) {
+    console.error("market-prices: upstream fetch failed", error);
+    const status = error instanceof UpstreamError ? error.status : undefined;
+    return { ok: false, status, records: 0, error: "upstream_failed" };
+  }
+
+  if (records.length === 0) return { ok: true, records: 0 };
 
   // Stamped explicitly: on upsert conflicts the column default doesn't
   // apply, so re-fetched rows would otherwise keep their old fetched_at and
@@ -151,15 +161,71 @@ async function ensureFreshCache(
   }
   const rows = [...rowsByKey.values()];
 
-  if (rows.length === 0) return;
-
-  const { error } = await admin
-    .from("market_cache")
-    .upsert(rows, { onConflict: "market,commodity,variety,arrival_date" });
-
-  if (error) {
-    console.error("market-prices: cache upsert failed", error);
+  if (rows.length > 0) {
+    const { error } = await admin
+      .from("market_cache")
+      .upsert(rows, { onConflict: "market,commodity,variety,arrival_date" });
+    if (error) {
+      console.error("market-prices: cache upsert failed", error);
+      return { ok: false, records: records.length, error: "cache_write_failed" };
+    }
   }
+
+  return { ok: true, records: records.length };
+}
+
+// data.gov.in has used two spellings for its state filter field. "state"
+// is tried first; if it matches nothing, "state.keyword" is tried — but
+// only as a bonus: its errors are ignored, so it can never turn a genuine
+// "no data today" into a failure.
+async function fetchStateRecords(
+  apiKey: string,
+  state: string,
+): Promise<Record<string, string | number>[]> {
+  const deadline = Date.now() + UPSTREAM_BUDGET_MS;
+  const records = await fetchPages(apiKey, state, "state", deadline);
+  if (records.length > 0) return records;
+
+  try {
+    return await fetchPages(apiKey, state, "state.keyword", deadline);
+  } catch (error) {
+    console.warn("market-prices: state.keyword fallback failed", error);
+    return [];
+  }
+}
+
+async function fetchPages(
+  apiKey: string,
+  state: string,
+  filterField: string,
+  deadline: number,
+): Promise<Record<string, string | number>[]> {
+  const records: Record<string, string | number>[] = [];
+  for (let page = 0; page < UPSTREAM_MAX_PAGES; page++) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    const url = new URL(`https://api.data.gov.in/resource/${RESOURCE_ID}`);
+    url.searchParams.set("api-key", apiKey);
+    url.searchParams.set("format", "json");
+    url.searchParams.set("limit", String(UPSTREAM_PAGE_SIZE));
+    url.searchParams.set("offset", String(page * UPSTREAM_PAGE_SIZE));
+    url.searchParams.set(`filters[${filterField}]`, state);
+
+    const response = await fetch(url.toString(), { signal: AbortSignal.timeout(remaining) });
+    if (!response.ok) {
+      throw new UpstreamError(
+        response.status,
+        `data.gov.in request failed with status ${response.status}`,
+      );
+    }
+
+    const payload = await response.json();
+    const batch = (payload.records ?? []) as Record<string, string | number>[];
+    records.push(...batch);
+    if (batch.length < UPSTREAM_PAGE_SIZE) break;
+  }
+  return records;
 }
 
 function normalizeRecord(

@@ -17,9 +17,19 @@ export type MarketTrendPoint = {
   modalPrice: number;
 };
 
+// How the Edge Function's refresh from data.gov.in went; null/absent when
+// the cache was fresh and no refresh was attempted.
+export type MarketUpstreamStatus = {
+  ok: boolean;
+  status?: number;
+  records: number;
+  error?: "missing_api_key" | "upstream_failed" | "cache_write_failed";
+};
+
 export type MarketPricesResponse = {
   prices: MarketPrice[];
   trend: MarketTrendPoint[];
+  upstream?: MarketUpstreamStatus | null;
 };
 
 export type MarketSort = "date_desc" | "price_asc" | "price_desc";

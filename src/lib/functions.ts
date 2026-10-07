@@ -18,6 +18,9 @@ export async function callEdgeFunction<T>(
     searchParams?: Record<string, string | undefined>;
     body?: unknown;
     timeoutMs?: number;
+    // Supabase regional invocation, e.g. "ap-south-1" (Mumbai). By default a
+    // function runs near the caller — the Vercel server, not the farmer.
+    region?: string;
   } = {},
 ): Promise<EdgeFunctionResult<T>> {
   const supabase = await createClient();
@@ -41,6 +44,7 @@ export async function callEdgeFunction<T>(
       headers: {
         Authorization: `Bearer ${session.access_token}`,
         ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.region ? { "x-region": options.region } : {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
       cache: "no-store",

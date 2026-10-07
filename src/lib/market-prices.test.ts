@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const callEdgeFunction = vi.fn();
 vi.mock("@/lib/functions", () => ({ callEdgeFunction: (...args: unknown[]) => callEdgeFunction(...args) }));
 
-const { agmarknetStateAlias, lookupMarketPrices, normalizeStateName } = await import("./market-prices");
+const { agmarknetStateAlias, describeUpstream, lookupMarketPrices, normalizeStateName } =
+  await import("./market-prices");
 
 const price = (market: string) => ({
   id: market,
@@ -59,6 +60,19 @@ describe("lookupMarketPrices", () => {
     });
   });
 
+  it("runs the function in the Mumbai region, since data.gov.in refuses foreign connections", async () => {
+    callEdgeFunction.mockResolvedValueOnce(ok(["Vijayawada"]));
+    await lookupMarketPrices({ state: "Andhra Pradesh" });
+    expect(callEdgeFunction.mock.calls[0][1].region).toBe("ap-south-1");
+  });
+
+  it("passes on the latest data.gov.in refresh report", async () => {
+    const upstream = { ok: false, records: 0, error: "upstream_failed" as const };
+    callEdgeFunction.mockResolvedValue({ data: { prices: [], trend: [], upstream }, error: null, status: 200 });
+    const lookup = await lookupMarketPrices({ state: "Andhra Pradesh", district: "NTR" });
+    expect(lookup.upstream).toEqual(upstream);
+  });
+
   it("widens to the whole state when the district has no prices", async () => {
     callEdgeFunction.mockResolvedValueOnce(ok([])).mockResolvedValueOnce(ok(["Guntur"]));
     const lookup = await lookupMarketPrices({ state: "Andhra Pradesh", district: "NTR" });
@@ -88,5 +102,33 @@ describe("lookupMarketPrices", () => {
     const lookup = await lookupMarketPrices({ state: "Andhra Pradesh", district: "NTR" });
     expect(lookup.error).toBe(false);
     expect(lookup.result?.prices).toEqual([]);
+  });
+});
+
+describe("describeUpstream", () => {
+  it("says nothing when no refresh happened", () => {
+    expect(describeUpstream(null, "Andhra Pradesh")).toBeNull();
+  });
+
+  it.each([
+    [{ ok: false, records: 0, error: "missing_api_key" as const }, "missingKey", true],
+    [{ ok: false, status: 403, records: 0, error: "upstream_failed" as const }, "keyRejected", true],
+    [{ ok: false, status: 429, records: 0, error: "upstream_failed" as const }, "rateLimited", true],
+    [{ ok: false, records: 0, error: "upstream_failed" as const }, "unreachable", true],
+    [{ ok: false, records: 500, error: "cache_write_failed" as const }, "saveFailed", true],
+    [{ ok: true, records: 0 }, "noReportsToday", false],
+    [{ ok: true, records: 10 }, "demoKeyCap", false],
+  ])("%o -> %s", (upstream, key, isFailure) => {
+    expect(describeUpstream(upstream, "andhra pradesh")).toMatchObject({ key, isFailure });
+  });
+
+  it("stays quiet for a healthy full refresh", () => {
+    expect(describeUpstream({ ok: true, records: 742 }, "Andhra Pradesh")).toBeNull();
+  });
+
+  it("uses the canonical state name in the no-reports message", () => {
+    expect(describeUpstream({ ok: true, records: 0 }, "andhra pradesh")?.values).toEqual({
+      state: "Andhra Pradesh",
+    });
   });
 });

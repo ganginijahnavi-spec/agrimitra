@@ -314,6 +314,15 @@
     "trendSubtitle": "{commodity} at {market}",
     "trendSrSummary": "Modal price trend from ₹{first} on {firstDate} to ₹{last} on {lastDate}.",
     "districtFallback": "No recent prices reported for {district} — showing markets across {state}.",
+    "upstream": {
+      "missingKey": "Live prices are unavailable: the data.gov.in API key isn't set up.",
+      "keyRejected": "Live prices are unavailable: data.gov.in rejected the API key (error {status}).",
+      "rateLimited": "Live prices are unavailable: data.gov.in's request limit was reached. Please try again later.",
+      "unreachable": "Live prices are unavailable: data.gov.in didn't respond. Please try again later.",
+      "saveFailed": "Prices were fetched from data.gov.in but couldn't be saved. Please try again.",
+      "demoKeyCap": "data.gov.in returned only {count} records, which suggests a demo API key (limited to 10). Use a personal key for full prices.",
+      "noReportsToday": "data.gov.in has no price reports for {state} right now."
+    },
     "trendUnavailable": "Not enough price history yet for a trend — check back after a few days."
   },
   "Chat": {

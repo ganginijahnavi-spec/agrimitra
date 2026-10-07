@@ -2,7 +2,7 @@ import { MapPin, Search, TrendingUp } from "lucide-react";
 import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { lookupMarketPrices } from "@/lib/market-prices";
+import { describeUpstream, lookupMarketPrices, type UpstreamNotice } from "@/lib/market-prices";
 import type { MarketPricesResponse, MarketSort } from "@/lib/market";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,13 +58,17 @@ export default async function MarketPage({
   let result: MarketPricesResponse | null = null;
   let fetchError = false;
   let widenedToState = false;
+  let notice: UpstreamNotice | null = null;
 
   if (state) {
     const lookup = await lookupMarketPrices({ state, district, market, commodity, sort });
     result = lookup.result;
     fetchError = lookup.error;
     widenedToState = lookup.scope === "state";
+    notice = describeUpstream(lookup.upstream, state);
   }
+  const noticeText = notice ? t(`upstream.${notice.key}`, notice.values) : null;
+  const hasPrices = !!result && result.prices.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -132,8 +136,10 @@ export default async function MarketPage({
         />
       ) : fetchError ? (
         <ErrorState title={t("errorTitle")} />
-      ) : !result || result.prices.length === 0 ? (
-        <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
+      ) : !hasPrices && notice?.isFailure ? (
+        <ErrorState title={t("errorTitle")} description={noticeText ?? undefined} />
+      ) : !result || !hasPrices ? (
+        <EmptyState title={t("emptyTitle")} description={noticeText ?? t("emptyDescription")} />
       ) : (
         <div className="space-y-6">
           {result.trend.length >= 2 && (
@@ -154,6 +160,12 @@ export default async function MarketPage({
                 <MarketTrendChart trend={result.trend} />
               </CardContent>
             </Card>
+          )}
+
+          {noticeText && (
+            <p className="rounded-md bg-secondary/60 px-3 py-2 text-sm text-foreground">
+              {noticeText}
+            </p>
           )}
 
           {widenedToState && (
