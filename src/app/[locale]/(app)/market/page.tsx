@@ -145,7 +145,7 @@ export default async function MarketPage({
           }
         />
       ) : hasReference && !hasPrices ? (
-        <ReferencePrices lookup={reference!} requestedState={state} />
+        <ReferencePrices lookup={reference!} />
       ) : fetchError ? (
         <ErrorState title={t("errorTitle")} />
       ) : !hasPrices && notice?.isFailure ? (
@@ -154,7 +154,7 @@ export default async function MarketPage({
         <EmptyState title={t("emptyTitle")} description={noticeText ?? t("emptyDescription")} />
       ) : (
         <div className="space-y-6">
-          {hasReference && <ReferencePrices lookup={reference!} requestedState={state} />}
+          {hasReference && <ReferencePrices lookup={reference!} />}
 
           {result.trend.length >= 2 && (
             <Card className="border-none shadow-sm">

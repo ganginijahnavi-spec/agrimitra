@@ -329,6 +329,7 @@
       "title": "Reference prices",
       "explanation": "Approximate prices from public mandi price listings (October 2026). These are not official market reports.",
       "fallback": "We don't have reference prices for {state} yet, so these are {sourceState} figures.",
+      "typicalPrice": "Typical mandi price",
       "approxPrice": "Approx. price",
       "stateAverage": "Average across {state} mandis",
       "atMarket": "At {market} mandi",
