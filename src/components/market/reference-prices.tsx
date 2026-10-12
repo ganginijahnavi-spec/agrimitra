@@ -1,4 +1,3 @@
-import { Info } from "lucide-react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import type { ReferenceLookup } from "@/lib/reference-prices";
@@ -16,19 +15,12 @@ export async function ReferencePrices({
   const format = await getFormatter();
 
   return (
-    <section className="space-y-4" aria-labelledby="reference-prices-title">
-      <div className="flex items-start gap-2 rounded-md bg-secondary/60 px-3 py-2 text-sm text-foreground">
-        <Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-        <div className="space-y-1">
-          <p id="reference-prices-title" className="font-medium">
-            {t("title")}
-          </p>
-          <p>{t("explanation")}</p>
-          {lookup.match === "fallback" && (
-            <p>{t("fallback", { state: requestedState, sourceState: lookup.sourceState })}</p>
-          )}
-        </div>
-      </div>
+    <section className="space-y-4">
+      {lookup.match === "fallback" && (
+        <p className="text-sm text-muted-foreground">
+          {t("fallback", { state: requestedState, sourceState: lookup.sourceState })}
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {lookup.prices.map((price) => (
@@ -59,7 +51,6 @@ export async function ReferencePrices({
         ))}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">{t("sources")}</p>
     </section>
   );
 }
