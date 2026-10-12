@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/states/empty-state";
 import { ErrorState } from "@/components/states/error-state";
 import { MarketTrendChart } from "@/components/market/market-trend-chart";
+import { ReferencePrices } from "@/components/market/reference-prices";
+import { getReferencePrices } from "@/lib/reference-prices";
 
 const selectClassName =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
@@ -69,6 +71,12 @@ export default async function MarketPage({
   }
   const noticeText = notice ? t(`upstream.${notice.key}`, notice.values) : null;
   const hasPrices = !!result && result.prices.length > 0;
+
+  // While live data is unavailable (or nothing matched), show approximate,
+  // clearly-labelled reference prices instead of an empty page.
+  const liveUnavailable = fetchError || !hasPrices || !!notice?.isFailure;
+  const reference = state && liveUnavailable ? getReferencePrices(state, commodity) : null;
+  const hasReference = !!reference && reference.prices.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
@@ -134,6 +142,8 @@ export default async function MarketPage({
             </Button>
           }
         />
+      ) : hasReference && !hasPrices ? (
+        <ReferencePrices lookup={reference!} requestedState={state} />
       ) : fetchError ? (
         <ErrorState title={t("errorTitle")} />
       ) : !hasPrices && notice?.isFailure ? (
@@ -142,6 +152,8 @@ export default async function MarketPage({
         <EmptyState title={t("emptyTitle")} description={noticeText ?? t("emptyDescription")} />
       ) : (
         <div className="space-y-6">
+          {hasReference && <ReferencePrices lookup={reference!} requestedState={state} />}
+
           {result.trend.length >= 2 && (
             <Card className="border-none shadow-sm">
               <CardHeader>
@@ -162,7 +174,7 @@ export default async function MarketPage({
             </Card>
           )}
 
-          {noticeText && (
+          {noticeText && !hasReference && (
             <p className="rounded-md bg-secondary/60 px-3 py-2 text-sm text-foreground">
               {noticeText}
             </p>

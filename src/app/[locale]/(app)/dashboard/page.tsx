@@ -4,6 +4,7 @@ import { redirect, Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getWeather } from "@/lib/weather";
 import { lookupMarketPrices } from "@/lib/market-prices";
+import { getReferencePrices } from "@/lib/reference-prices";
 import { WeatherIcon } from "@/components/weather/weather-icon";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,11 @@ export default async function DashboardPage({
       : null,
   ]);
   const marketPrice = marketResult?.prices?.[0] ?? null;
+  // No live price: fall back to an approximate reference price (labelled as such).
+  const referencePrice =
+    !marketPrice && profile?.state && marketCropName
+      ? (getReferencePrices(profile.state, marketCropName).prices[0] ?? null)
+      : null;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -202,6 +208,15 @@ export default async function DashboardPage({
                   <span className="text-muted-foreground">{tMarket("unit")}</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">
                     {t("marketAt", { market: marketPrice.market })}
+                  </span>
+                </CardDescription>
+              ) : referencePrice ? (
+                <CardDescription className="text-foreground">
+                  <span className="font-semibold">{referencePrice.commodity}</span>:{" "}
+                  <span className="font-semibold">₹{format.number(referencePrice.modalPrice)}</span>{" "}
+                  <span className="text-muted-foreground">{tMarket("unit")}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    {t("marketReference")}
                   </span>
                 </CardDescription>
               ) : (

@@ -227,6 +227,7 @@
     "noChatsYet": "No conversations yet.",
     "startChat": "Start chatting",
     "marketAt": "at {market}",
+    "marketReference": "Approx. reference price (live data unavailable)",
     "noCropsYet": "You haven't added any crops yet."
   },
   "Weather": {
@@ -322,6 +323,16 @@
       "saveFailed": "Prices were fetched from data.gov.in but couldn't be saved. Please try again.",
       "demoKeyCap": "data.gov.in returned only {count} records, which suggests a demo API key (limited to 10). Use a personal key for full prices.",
       "noReportsToday": "data.gov.in has no price reports for {state} right now."
+    },
+    "reference": {
+      "title": "Showing approximate reference prices",
+      "explanation": "Live prices from data.gov.in aren't available right now. These are approximate prices gathered from public price-listing websites in October 2026. They are not official market reports.",
+      "fallback": "We don't have reference prices for {state} yet, so these are {sourceState} figures.",
+      "approxPrice": "Approx. price",
+      "stateAverage": "Average across {state} mandis",
+      "atMarket": "At {market} mandi",
+      "asOf": "As of {date}",
+      "sources": "Sources: public mandi price-listing sites (Acrop, Commodity Online, Farmer.in, KisanDeals). Check Agmarknet or your local mandi before buying or selling."
     },
     "trendUnavailable": "Not enough price history yet for a trend — check back after a few days."
   },
