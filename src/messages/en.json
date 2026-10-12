@@ -227,7 +227,7 @@
     "noChatsYet": "No conversations yet.",
     "startChat": "Start chatting",
     "marketAt": "at {market}",
-    "marketReference": "Approx. reference price (live data unavailable)",
+    "marketReference": "Approx. reference price",
     "noCropsYet": "You haven't added any crops yet."
   },
   "Weather": {
@@ -324,9 +324,10 @@
       "demoKeyCap": "data.gov.in returned only {count} records, which suggests a demo API key (limited to 10). Use a personal key for full prices.",
       "noReportsToday": "data.gov.in has no price reports for {state} right now."
     },
+    "subtitleReference": "Approximate mandi prices for your area.",
     "reference": {
-      "title": "Showing approximate reference prices",
-      "explanation": "Live prices from data.gov.in aren't available right now. These are approximate prices gathered from public price-listing websites in October 2026. They are not official market reports.",
+      "title": "Reference prices",
+      "explanation": "Approximate prices from public mandi price listings (October 2026). These are not official market reports.",
       "fallback": "We don't have reference prices for {state} yet, so these are {sourceState} figures.",
       "approxPrice": "Approx. price",
       "stateAverage": "Average across {state} mandis",
